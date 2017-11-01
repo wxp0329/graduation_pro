@@ -3,7 +3,7 @@ import tensorflow as tf
 
 import numpy as np
 import time
-import inspect
+import inspect, re
 
 VGG_MEAN = [103.939, 116.779, 123.68]
 
@@ -12,6 +12,25 @@ class Vgg19:
     """
     A trainable version VGG19.
     """
+
+    def activation_summary(self, x):
+        """Helper to create summaries for activations.
+
+        Creates a summary that provides a histogram of activations.
+        Creates a summary that measures the sparsity of activations.
+
+        Args:
+          x: Tensor
+        Returns:
+          nothing
+        """
+        # Remove 'tower_[0-9]/' from the name in case this is a multi-GPU training
+        # session. This helps the clarity of presentation on tensorboard.
+        TOWER_NAME = 'tower'
+        tensor_name = re.sub('%s_[0-9]*/' % TOWER_NAME, '', x.op.name)
+        tf.summary.histogram(tensor_name + '/activations', x)
+        tf.summary.scalar(tensor_name + '/sparsity',
+                          tf.nn.zero_fraction(x))
 
     def __init__(self, vgg19_npy_path=None, trainable=True):
         if vgg19_npy_path is not None:
@@ -72,6 +91,7 @@ class Vgg19:
 
         self.fc6 = self.fc_layer(self.pool5, 25088, 4096, "fc6")  # 25088 = ((224 / (2 ** 5)) ** 2) * 512
         self.relu6 = tf.nn.relu(self.fc6)
+        self.activation_summary(self.relu6)
         if train_mode is not None:
             self.relu6 = tf.cond(train_mode, lambda: tf.nn.dropout(self.relu6, 0.5), lambda: self.relu6)
         elif self.trainable:
@@ -79,13 +99,14 @@ class Vgg19:
 
         self.fc7 = self.fc_layer(self.relu6, 4096, 4096, "fc7")
         self.relu7 = tf.nn.relu(self.fc7)
+        self.activation_summary(self.relu7)
         if train_mode is not None:
             self.relu7 = tf.cond(train_mode, lambda: tf.nn.dropout(self.relu7, 0.5), lambda: self.relu7)
         elif self.trainable:
             self.relu7 = tf.nn.dropout(self.relu7, 0.5)
 
         self.fc8 = self.fc_layer(self.relu7, 4096, 1000, "fc8")
-
+        self.activation_summary(self.fc8)
         self.prob = tf.nn.softmax(self.fc8, name="prob")
 
         self.data_dict = None
@@ -103,7 +124,7 @@ class Vgg19:
             conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME')
             bias = tf.nn.bias_add(conv, conv_biases)
             relu = tf.nn.relu(bias)
-
+            self.activation_summary(relu)
             return relu
 
     def fc_layer(self, bottom, in_size, out_size, name):

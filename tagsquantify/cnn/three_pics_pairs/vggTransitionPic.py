@@ -5,96 +5,128 @@ import datetime
 import numpy as np
 import shutil
 import tensorflow as tf
-import os
+import os, time
 from multiprocessing import cpu_count
 
 import threadpool
 
-import Three_net_enforce
-
 # from tagsquantify.cnn import NUS_layers
+from tagsquantify.cnn.vgg_nets.vgg16train import Vgg16
 
-IMAGE_SIZE = 1
-IMAGE_DIR = '/media/wangxiaopeng/maxdisk/NUS_dataset/images_220841'
-IMAGE_DIR_500 = '/media/wangxiaopeng/maxdisk/NUS_dataset/images_220841'
-CHECKPOINT_DIR = '/home/wangxiaopeng/Three_train_vgg'
-SAVE_MAT_DIR = '/home/wangxiaopeng/NUS_dataset/enforce_mats'
-SAVE_MAT_DIR_500 = '/home/wangxiaopeng/NUS_dataset/enforce_mats_500'
+IMAGE_SIZE = 224
+IMAGE_DIR = r'F:\NUS_dataset\images_220841'
+IMAGE_TRAIN_PATH = r'F:\NUS_dataset\teacher_project_data\test_data\train_com.txt'
+IMAGE_PATH_2003 = r'F:\NUS_dataset\teacher_project_data\test_data\test_com.txt'
+CHECKPOINT_DIR = r'F:\NUS_dataset\teacher_project_data\checkPointDir'
+DATABASE_MAT_DIR = r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\database_mat'
+MAT_2003_DIR = r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\2003_mat'
 COM_DIR = '/home/wangxiaopeng/NUS_dataset/com_dir/'
 
 
+def get_img(str1):
+    im = Image.open(str1)
+    re_img = np.array(im.resize((IMAGE_SIZE, IMAGE_SIZE)), dtype=np.float32)
+    re_img = (re_img - np.mean(re_img)) / np.std(re_img)
+    return re_img
 
-def get_pic_input2output(file_paths, left, right, path=SAVE_MAT_DIR, img_dir=IMAGE_DIR, batch_size=100):
+
+def get_pic_input2output(outleft, outright, path=MAT_2003_DIR):
+    global file_paths
     with tf.Graph().as_default() as g:
         with tf.Session() as sess:
-            # 读取生产的顺序文件（保证最后的向量顺序与该文件里的文件名顺序相同）
-
-            all_pics = file_paths[left:right]
-
 
             # 调用模型部分………………………………………………………………………………………………
-            arr = tf.placeholder("float", [batch_size, IMAGE_SIZE, IMAGE_SIZE, 512])
-
-            logits = Three_net_enforce.inference(arr, batch_size)
-            saver = tf.train.Saver()
-
-            ckpt = tf.train.get_checkpoint_state(CHECKPOINT_DIR)
-            if ckpt and ckpt.model_checkpoint_path:
-                # Restores from checkpoint
-                saver.restore(sess, ckpt.model_checkpoint_path)
-            else:
-                print('No checkpoint file found')
+            arr = tf.placeholder("float", [None, IMAGE_SIZE, IMAGE_SIZE, 3])
+            vgg16 = Vgg16(vgg16_npy_path=r'F:\NUS_dataset\tensorflow-vgg_models\vgg16.npy')
+            logits = vgg16.inference(arr)
+            # saver = tf.train.Saver()
+            #
+            # ckpt = tf.train.get_checkpoint_state(CHECKPOINT_DIR)
+            # if ckpt and ckpt.model_checkpoint_path:
+            #     # Restores from checkpoint
+            #     saver.restore(sess, r'F:\NUS_dataset\teacher_project_data\checkPointDir10000\model.ckpt-9999')
+            # else:
+            #     print('No checkpoint file found')
             # 读取所有图片的.npy文件的个数（为了得到该文件夹中文件的个数）
 
-            affine = sess.run(logits, feed_dict={
-                arr: all_pics})
-            # 保存hash过后的结果
-            np.save(os.path.join(path, str(left) + '_mat'), affine)
-            print 'save affine: ', left
-            return affine
+            # 读取生产的顺序文件（保证最后的向量顺序与该文件里的文件名顺序相同）
+            all_pics = file_paths[outleft:outright]
+            len_ = len(all_pics)
+            i_list = []
+            left = 0
+            while True:
+                right = left + 50
+                if right >= len_:
+                    i_list.append([left, len_])
+                    break
+                i_list.append([left, right])
+                left = right
+                # 开始分批存储转换好的mat
+            for i in i_list:
+                affine = sess.run(logits, feed_dict={
+                    arr: all_pics[i[0]:i[1]]})
+                # 保存结果
+                np.save(os.path.join(path, str(outleft + i[0]) + '_mat'), affine)
+                print('第{}块mat保存完毕！'.format(outleft + i[0]))
 
-
-def trans_500():
-
-    file_paths = np.load('/media/wangxiaopeng/maxdisk/NUS_dataset/2003_vgg16_pics.npy')
-    affine = get_pic_input2output(file_paths, 0, len(file_paths), path=SAVE_MAT_DIR_500, img_dir=IMAGE_DIR_500,
-                                  batch_size=len(file_paths))
-    np.save(os.path.join(SAVE_MAT_DIR_500, str(2003) + '_hash_mat_48a'), np.where(affine>=0.5,1,0))
-    np.save(os.path.join(SAVE_MAT_DIR_500, str(2003) + '_mat_48a'),affine)
 
 def trans_parts():
-    if os.path.exists(SAVE_MAT_DIR):
-        shutil.rmtree(SAVE_MAT_DIR)
+    global file_paths
 
-    os.mkdir(SAVE_MAT_DIR)
+    start = time.time()
+    # if os.path.exists(DATABASE_MAT_DIR):
+    #     shutil.rmtree(DATABASE_MAT_DIR)
 
-    file_paths = np.load('/media/wangxiaopeng/maxdisk/NUS_dataset/218838_vgg16_pics.npy')
-    print 'cpu_count :', cpu_count()
+    # os.mkdir(DATABASE_MAT_DIR)
+    file_paths = []
+    with open(IMAGE_PATH_2003) as fr:
+        for i in fr.readlines():
+            img = get_img(os.path.join(IMAGE_DIR, i.strip() + '.jpg'))
+            print('读取图片{}完毕！'.format(i))
+            file_paths.append(img)
+    # np.save(r'F:\NUS_dataset\2003_pics',np.array(file_paths).astype(dtype=np.float32))
+    print('cpu_count :', cpu_count())
     len_ = len(file_paths)
     i_list = []
-    for i in xrange(0, 230000, 100):  # 3000000 行大约50M数据
-
-        if i + 100 >= len_:
-            i_list.append([file_paths, i, len_ + 1])
+    left = 0
+    while True:
+        right = left + 1000
+        if right >= len_:
+            i_list.append([left, len_])
             break
-        i_list.append([file_paths, i, i + 100])
+        i_list.append([left, right])
+        left = right
     n_list = [None for i in range(len(i_list))]
     pool = threadpool.ThreadPool(cpu_count())
     requests = threadpool.makeRequests(get_pic_input2output, zip(i_list, n_list))
     [pool.putRequest(req) for req in requests]
     pool.wait()
-    print 'all of strans_part excute over !!!!!'
+    print('all of strans_part excute over !!!!!')
+    end = time.time()
+    print('consume time is :' + str(end - start) + ' seconds!!')
+
+
+def singleCom():
+    root_dir = r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\2003_mat'
+    ord = []
+    for i in os.listdir(root_dir):
+        ord.append(int(i.strip().split('_')[0]))
+    ord.sort()
+    ls = []
+    for i in ord:
+        ls.append(np.load(os.path.join(root_dir, str(i) + '_mat.npy')))
+    np.save(r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\vgg16_121_train_mat', np.concatenate(ls))
 
 
 def com(file_id, left, right):
     all_mat_after = []
     for i in file_id[left:right]:
         all_mat_after.append(
-            np.load(os.path.join(SAVE_MAT_DIR, str(i) + '_mat.npy')))
+            np.load(os.path.join(DATABASE_MAT_DIR, str(i) + '_mat.npy')))
 
     np.save(os.path.join(COM_DIR, str(left) + '_combine_pic.mat'),
             np.concatenate(all_mat_after))
-    print 'combination over!!!'
+    print('combination over!!!')
 
 
 def com_parts():
@@ -103,9 +135,9 @@ def com_parts():
 
     os.mkdir(COM_DIR)
 
-    print 'cpu_count :', cpu_count()
+    print('cpu_count :', cpu_count())
     file_id = []
-    for i in xrange(0, 230000, 100):  # generate files indexes
+    for i in range(0, 230000, 100):  # generate files indexes
 
         if i + 100 >= 218738:
             file_id.append(i)
@@ -115,7 +147,7 @@ def com_parts():
     len_ = len(file_id)
 
     com_i_list = []
-    for i in xrange(0, 230000, 1000):  # split files indexes
+    for i in range(0, 230000, 1000):  # split files indexes
 
         if i + 1000 >= len_:
             com_i_list.append([file_id, i, len_])
@@ -126,25 +158,8 @@ def com_parts():
     requests = threadpool.makeRequests(com, zip(com_i_list, n_list))
     [pool.putRequest(req) for req in requests]
     pool.wait()
-    print 'all of com excute over !!!!!'
-
-
-def com_two():
-    a = np.load(os.path.join('/home/wangxiaopeng/NUS_dataset/com_dir/0_combine_pic.mat.npy'))
-    b = np.load(os.path.join('/home/wangxiaopeng/NUS_dataset/com_dir/1000_combine_pic.mat.npy'))
-    c = np.load(os.path.join('/home/wangxiaopeng/NUS_dataset/com_dir/2000_combine_pic.mat.npy'))
-    np.save(os.path.join(os.path.join(SAVE_MAT_DIR_500, 'combine_pic_mat_48a')),
-            np.concatenate([a, b, c]))
-    np.save(os.path.join(os.path.join(SAVE_MAT_DIR_500, 'combine_hash_pic_mat_48a')),
-            np.where(np.concatenate([a, b, c]) >= 0.5, 1, 0))
+    print('all of com excute over !!!!!')
 
 
 if __name__ == '__main__':
-    start = datetime.datetime.now()
-    trans_parts()
-    com_parts()
-    com_two()
-    trans_500()
-    # print np.shape(np.load(('/home/wangxiaopeng/combine_pic.mat.npy')))
-    end = datetime.datetime.now()
-    print 'consume time is :', (end - start).seconds / 60, 'minutes', (end - start).seconds % 60, ' seconds....'
+    singleCom()

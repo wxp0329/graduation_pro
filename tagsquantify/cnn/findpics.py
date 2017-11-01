@@ -78,7 +78,7 @@ def write_img_label(sortedFilename, matrix_filename, path2='/home/wangxiaopeng/N
         for line in fr.readlines():
             d = line.strip().split('__#__')
             dic[d[0]] = d[1]
-    print 'replaced_All_tags.dat: ', len(dic)
+    print ('replaced_All_tags.dat: ', len(dic))
 
     matrix_filenames = []
     with open(matrix_filename) as fr:
@@ -86,7 +86,7 @@ def write_img_label(sortedFilename, matrix_filename, path2='/home/wangxiaopeng/N
             # pic name without suffix
             matrix_filenames.append(line.strip().rsplit('/', 1)[1].split('.')[0])
 
-    print 'matrix_filenames :', len(matrix_filenames)
+    print ('matrix_filenames :', len(matrix_filenames))
     with open(sortedFilename, 'a') as fw:
         for name in matrix_filenames:
             fw.write(name + '__^__' + dic[name])
@@ -120,7 +120,7 @@ def get_one2more(user_pic_name, found_files_dir='/home/wangxiaopeng/found_pics/'
     with tf.Graph().as_default() as g:
         with open(all_pics_name_file) as fr:
             all_file_name = fr.readlines()
-            print 'creating :', user_pic_name, ' similar pics.....'
+            print ('creating :', user_pic_name, ' similar pics.....')
         original = user_pic_name
         # before finding remove all previus pics
         # removeAllPics(found_files_dir)

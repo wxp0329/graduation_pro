@@ -19,7 +19,7 @@ key_list = all_line_dict.keys()
 
 
 def write_files(i):
-    print 'start write:', i, '..........'
+    print ('start write:', i, '..........')
 
     fw = open('/home/wangxiaopeng/operate/mid_files/' + str(i) + '_mid_file.txt', 'w')
     i_key = key_list[i]
@@ -30,18 +30,17 @@ def write_files(i):
             fw.write(i_key + ' ' + j + '\n')
             fw.flush()
     fw.close()
-    print 'save :', i, 'over  !!!!!!!!!!!!'
+    print ('save :', i, 'over  !!!!!!!!!!!!')
 
 
 if __name__ == '__main__':#GPU 机器写到了第18138和剩余的图片比较所得的交集，下次该 i = 18139  !!!!
-    print 'cpu_count :', cpu_count()
 
-    i_list = [[i] for i in xrange(0, len(key_list))]
+    i_list = [[i] for i in range(0, len(key_list))]
 
-    n_list = [None for i in xrange(len(i_list))]
+    n_list = [None for i in range(len(i_list))]
 
     pool = threadpool.ThreadPool(cpu_count())
     requests = threadpool.makeRequests(write_files, zip(i_list, n_list))
     [pool.putRequest(req) for req in requests]
     pool.wait()
-    print 'all of intersection processes excute over !!!!!'
+    print ('all of intersection processes excute over !!!!!')
