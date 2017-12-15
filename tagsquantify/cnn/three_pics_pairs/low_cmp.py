@@ -17,7 +17,7 @@ def genAll81Labels():
                        dtype=np.int64), [-1, 1]))
 
     new = np.concatenate(a, axis=1)
-    print new.shape
+    print (new.shape)
     np.savetxt('/media/wangxiaopeng/maxdisk/NUS_dataset/Groundtruth/AllLabels81', new, fmt='%i')
 
 
@@ -90,7 +90,7 @@ def generate_sim_pics(root_dir,
     tfidf = np.loadtxt(feature)
     all_tfidf = np.loadtxt(
         '/media/wangxiaopeng/maxdisk/NUS_dataset/Low_Level_Features/' + feature.rsplit('/', 1)[1].split('_', 1)[1])
-    print 'feature loading over !'
+    print ('feature loading over !')
     # 每个pair存放的是[（索引，图片名），（索引，图片名）]
     pics_root_dir = '/home/wangxiaopeng/all_find_pics/find_pic_' + feature.rsplit('/', 1)[1].split('.')[0]
     # if os.path.exists(pics_root_dir):
@@ -239,7 +239,7 @@ def acc(top_count_category='/home/wangxiaopeng/top_count/cnn_top_counts',
             every_avg_acc += category[int(index_in_all)]
         every_avg_acc = every_avg_acc * 1.0 / sum_element
         max_min.append(every_avg_acc)
-        print 'pic name:', all_2003_name_index[(category1[num]).strip()], every_avg_acc
+        print ('pic name:', all_2003_name_index[(category1[num]).strip()], every_avg_acc)
         fw.write(str(all_2003_name_index[(category1[num]).strip()]) + ' ' + str(every_avg_acc) + '\n')
         avg_acc += every_avg_acc
         num += 1
@@ -325,7 +325,7 @@ def acc_multiLabels(retrived_pics, root_dir, top_count_category='/home/wangxiaop
     fw.write('every_acc_max: ' + str(max(max_min)) + '\n')
     fw.write('topic_avg_all: ' + str(avg_all) + '\n')
     fw.close()
-    print retrived_pics.rsplit('_', 1)[1].split('.')[0], 'acc compute over!'
+    print (retrived_pics.rsplit('_', 1)[1].split('.')[0], 'acc compute over!')
     return avg_all
 
 
@@ -407,7 +407,7 @@ def map_multiLabels(retrived_pics, root_dir, top_count_category='/home/wangxiaop
     fw.write('min_map: ' + str(min(map_all)) + '\n')
     fw.write('topic_avg_map: ' + str(topic_map) + '\n')
     fw.close()
-    print retrived_pics.rsplit('_', 1)[1].split('.')[0], 'map compute over!'
+    print (retrived_pics.rsplit('_', 1)[1].split('.')[0], 'map compute over!')
     return topic_map
 
 
@@ -483,7 +483,7 @@ def recall_multiLabels(retrived_pics, root_dir, top_count_category='/home/wangxi
     avg_recall = np.sum(np.array(recall_all)) * 1.0 / len(recall_all)
     fw.write('topic_avg_recall: ' + str(avg_recall) + '\n')
     fw.close()
-    print retrived_pics.rsplit('_', 1)[1].split('.')[0], 'recall compute over!'
+    print (retrived_pics.rsplit('_', 1)[1].split('.')[0], 'recall compute over!')
     return avg_recall
 
 
@@ -535,9 +535,9 @@ def cnn_acc_map_recall():
     fw.write('2003_avg_acc: ' + str(acc_2003_avg))
     fw_recall.write('2003_avg_recall: ' + str(acc_2003_recall))
     fw_map.write('2003_avg_map: ' + str(acc_2003_map))
-    print 'all_2003_test avg_acc: ', acc_2003_avg
-    print 'all_2003_test avg_recall: ', acc_2003_recall
-    print 'all_2003_test avg_map: ', acc_2003_map
+    print ('all_2003_test avg_acc: ', acc_2003_avg)
+    print ('all_2003_test avg_recall: ', acc_2003_recall)
+    print ('all_2003_test avg_map: ', acc_2003_map)
     fw.close()
 
 
@@ -585,9 +585,9 @@ def low_feature_acc_map_recall(feature):
     # fw.write('2003_avg_acc: ' + str(acc_2003_avg))
     # fw_recall.write('2003_avg_recall: ' + str(acc_2003_recall))
     # fw_map.write('2003_avg_map: ' + str(acc_2003_map))
-    print 'all_2003_test avg_acc: ', acc_2003_avg
-    print 'all_2003_test avg_recall: ', acc_2003_recall
-    print 'all_2003_test avg_map: ', acc_2003_map
+    print ('all_2003_test avg_acc: ', acc_2003_avg)
+    # print 'all_2003_test avg_recall: ', acc_2003_recall
+    # print 'all_2003_test avg_map: ', acc_2003_map
     # fw.close()
     # fw_recall.close()
     # fw_map.close()

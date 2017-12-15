@@ -90,7 +90,7 @@ def getSection():
             b.add(i.strip())
 
 if __name__ == '__main__':
-    # pic_count_in_trueFile()
-    # getSection()
-    extractTest()
-    # count()
+    a=np.loadtxt(open(r'F:\NUS_dataset\teacher_project_data\219388_2003_sparsecoding_bow_v1.txt',encoding='utf-8_sig'),dtype=np.string_,usecols=(0))
+    np.savetxt(r'219388_2003_sparsecoding_bow_keylist.txt',a,fmt='%s')
+
+

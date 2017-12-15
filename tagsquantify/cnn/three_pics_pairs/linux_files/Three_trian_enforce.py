@@ -1,21 +1,22 @@
 # encoding=utf-8
 from datetime import datetime
-import time, os,sys
+import time, os, sys, threading
 import numpy as np
 import tensorflow as tf
 
-from tagsquantify.cnn.three_pics_pairs import vgg_feature_reader, Three_net_enforce, vggTransitionPic, \
-    Three_input_mem
+from tagsquantify.cnn.three_pics_pairs.linux_files import Three_input_enforce, Three_net_enforce, explore
 
+sys.path.append('.')
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('train_dir', r'F:\NUS_dataset\graduate_data\cifar10_net_checkPointdir',
+tf.app.flags.DEFINE_string('train_dir', r'F:\NUS_dataset\graduate_data\alexnet_checkPointdir',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_integer('max_steps', 30000,
+tf.app.flags.DEFINE_integer('max_steps', 200000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
+
 
 def train():
     """Train CIFAR-10 for a number of steps."""
@@ -23,10 +24,12 @@ def train():
         global_step = tf.Variable(0, trainable=False)
 
         # Get images and labels for CIFAR-10.
-        images = tf.placeholder(dtype=tf.float32, shape=[None, Three_input_mem.FLAGS.img_size, Three_input_mem.FLAGS.img_size, 3])
+        images = tf.placeholder(dtype=tf.float32,
+                                shape=[None, Three_input_enforce.FLAGS.img_size, Three_input_enforce.FLAGS.img_size, 3])
         # Build a Graph that computes the logits predictions from the
         # inference model.
-        logits = Three_net_enforce.inference(images)
+        drop = tf.placeholder('bool')
+        logits = Three_net_enforce.inference(images, drop)
 
         # Calculate loss.
         loss = Three_net_enforce.loss(logits)
@@ -34,7 +37,6 @@ def train():
         # Build a Graph that trains the model with one batch of examples and
         # updates the model parameters.
         train_op = Three_net_enforce.train(loss, global_step)
-
         # Create a saver.
         saver = tf.train.Saver(tf.all_variables())
 
@@ -47,7 +49,7 @@ def train():
 
         # Start running operations on the Graph.
         config = tf.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 0.7
+        # config.gpu_options.per_process_gpu_memory_fraction = 1.
         sess = tf.Session(config=config)
         sess.run(init)
 
@@ -58,19 +60,19 @@ def train():
         #                                         graph_def=sess.get_default)
         summary_writer = tf.summary.FileWriter(FLAGS.train_dir, graph=g)
 
-        input = Three_input_mem.InputUtil()
+        input = Three_input_enforce.InputUtil()
 
         for step in range(FLAGS.max_steps):
             start_time = time.time()
             datas = input.next_batch()
             _, loss_value = sess.run([train_op, loss],
-                                     feed_dict={images: datas})
+                                     feed_dict={images: datas, drop: True})
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
             if step % 10 == 0:
-                num_examples_per_step = FLAGS.batch_size
+                num_examples_per_step = Three_net_enforce.FLAGS.batch_size
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = float(duration)
 
@@ -80,13 +82,24 @@ def train():
                                     examples_per_sec, sec_per_batch))
 
             if step % 100 == 0:
-                summary_str = sess.run(summary_op, feed_dict={images: datas})
+                summary_str = sess.run(summary_op, feed_dict={images: datas, drop: True})
                 summary_writer.add_summary(summary_str, step)
 
             # Save the model checkpoint periodically.
-            if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
+            if step % 200 == 0 or (step + 1) == FLAGS.max_steps:
                 checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_path, global_step=step)
+            # if step % 100 == 0:
+            #     small = sess.run(logits, feed_dict={
+            #         images: np.load('../vgg16_fc7_121.npy'),
+            #         drop: False})
+            #     big = sess.run(logits, feed_dict={
+            #         images: np.load('../vgg16_fc7_1000.npy'),
+            #         drop: False})
+            #     acc = threading.Thread(target=explore.eval_acc,
+            #                            args=(step, small, big, str(FLAGS.train_dir).rsplit('/', 1)[1]))
+            #     acc.setDaemon(True)
+            #     acc.start()
 
 
 def main(argv=None):  # pylint: disable=unused-argument

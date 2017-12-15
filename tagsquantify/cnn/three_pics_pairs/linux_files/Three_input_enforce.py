@@ -4,21 +4,15 @@ import numpy as np
 import os
 from PIL import Image
 
-from tagsquantify.cnn.three_pics_pairs import Three_net_enforce
+from tagsquantify.cnn.three_pics_pairs.linux_files import Three_net_enforce
 
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
-tf.app.flags.DEFINE_integer('img_size', 100,
+tf.app.flags.DEFINE_integer('img_size', 224,
                             """Number of images to process in a batch.""")
 
-tf.app.flags.DEFINE_string('pair_dir', r'F:\NUS_dataset\graduate_data\219388_2003_0.2_three_pair.txt',
-                           """three pairs files dir.""")
-tf.app.flags.DEFINE_string('pic_name_list',
-                           r'F:\NUS_dataset\graduate_data\219388_2003_0.2_three_pair_pic_name_list.txt',
-                           """three pairs files dir.""")
-tf.app.flags.DEFINE_string('pic_mat_file',
-                           r'F:\NUS_dataset\graduate_data\219388_2003_pic_norm_mat.npy',
+tf.app.flags.DEFINE_string('pair_dir', r'F:\NUS_dataset\graduate_data\169345_0.2_filename_three_pair.txt',
                            """three pairs files dir.""")
 tf.app.flags.DEFINE_string('imgs_dir',
                            r'F:\NUS_dataset\images_220841',
@@ -28,14 +22,6 @@ tf.app.flags.DEFINE_string('imgs_dir',
 class InputUtil:
     def __init__(self):
 
-        self.pic_name_inds = dict()#为了读取pic_mat矩阵，对应图片位置索引
-        num = 0
-        with open(FLAGS.pic_name_list) as fr:
-            for i in fr.readlines():
-                self.pic_name_inds[i.strip()] = num
-                num += 1
-
-        self.pic_mat=np.load(FLAGS.pic_mat_file)#图片标准化后的矩阵
         with open(FLAGS.pair_dir) as fr:  # 文件格式：i j k 代表pic名字索引
             self.paths = fr.readlines()
         self.start = 0
@@ -62,13 +48,17 @@ class InputUtil:
         k_s = []
         for line in self.paths[int(self.start):int(self.end)]:
             line = line.strip().split(' ')
-            i_s.append(self.pic_mat[self.pic_name_inds[line[0]]])
-            j_s.append(self.pic_mat[self.pic_name_inds[line[1]]])
-            k_s.append(self.pic_mat[self.pic_name_inds[line[2]]])
-            print(1)
+            i_s.append(self.getimg(os.path.join(FLAGS.imgs_dir, line[0] + '.jpg')))
+            j_s.append(self.getimg(os.path.join(FLAGS.imgs_dir, line[1] + '.jpg')))
+            k_s.append(self.getimg(os.path.join(FLAGS.imgs_dir, line[2] + '.jpg')))
         if self.end == len(self.paths):
             self.start = 0
         else:
             self.start = self.end
         # 一维数组
         return np.concatenate([i_s, j_s, k_s])
+
+
+if __name__ == '__main__':
+    a = InputUtil()
+    a.next_batch()

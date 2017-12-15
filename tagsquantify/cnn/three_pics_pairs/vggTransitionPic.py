@@ -11,12 +11,14 @@ from multiprocessing import cpu_count
 import threadpool
 
 # from tagsquantify.cnn import NUS_layers
+from tagsquantify.cnn.three_pics_pairs import Three_net_enforce, explore
 from tagsquantify.cnn.vgg_nets.vgg16train import Vgg16
+from tagsquantify.cnn.vgg_nets.vgg19train import Vgg19
 
 IMAGE_SIZE = 224
 IMAGE_DIR = r'F:\NUS_dataset\images_220841'
 IMAGE_TRAIN_PATH = r'F:\NUS_dataset\teacher_project_data\test_data\train_com.txt'
-IMAGE_PATH_2003 = r'F:\NUS_dataset\teacher_project_data\test_data\test_com.txt'
+IMAGE_PATH_2003 = r'F:\NUS_dataset\teacher_project_data\2003_key_list.txt'
 CHECKPOINT_DIR = r'F:\NUS_dataset\teacher_project_data\checkPointDir'
 DATABASE_MAT_DIR = r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\database_mat'
 MAT_2003_DIR = r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\2003_mat'
@@ -30,84 +32,8 @@ def get_img(str1):
     return re_img
 
 
-def get_pic_input2output(outleft, outright, path=MAT_2003_DIR):
-    global file_paths
-    with tf.Graph().as_default() as g:
-        with tf.Session() as sess:
-
-            # 调用模型部分………………………………………………………………………………………………
-            arr = tf.placeholder("float", [None, IMAGE_SIZE, IMAGE_SIZE, 3])
-            vgg16 = Vgg16(vgg16_npy_path=r'F:\NUS_dataset\tensorflow-vgg_models\vgg16.npy')
-            logits = vgg16.inference(arr)
-            # saver = tf.train.Saver()
-            #
-            # ckpt = tf.train.get_checkpoint_state(CHECKPOINT_DIR)
-            # if ckpt and ckpt.model_checkpoint_path:
-            #     # Restores from checkpoint
-            #     saver.restore(sess, r'F:\NUS_dataset\teacher_project_data\checkPointDir10000\model.ckpt-9999')
-            # else:
-            #     print('No checkpoint file found')
-            # 读取所有图片的.npy文件的个数（为了得到该文件夹中文件的个数）
-
-            # 读取生产的顺序文件（保证最后的向量顺序与该文件里的文件名顺序相同）
-            all_pics = file_paths[outleft:outright]
-            len_ = len(all_pics)
-            i_list = []
-            left = 0
-            while True:
-                right = left + 50
-                if right >= len_:
-                    i_list.append([left, len_])
-                    break
-                i_list.append([left, right])
-                left = right
-                # 开始分批存储转换好的mat
-            for i in i_list:
-                affine = sess.run(logits, feed_dict={
-                    arr: all_pics[i[0]:i[1]]})
-                # 保存结果
-                np.save(os.path.join(path, str(outleft + i[0]) + '_mat'), affine)
-                print('第{}块mat保存完毕！'.format(outleft + i[0]))
-
-
-def trans_parts():
-    global file_paths
-
-    start = time.time()
-    # if os.path.exists(DATABASE_MAT_DIR):
-    #     shutil.rmtree(DATABASE_MAT_DIR)
-
-    # os.mkdir(DATABASE_MAT_DIR)
-    file_paths = []
-    with open(IMAGE_PATH_2003) as fr:
-        for i in fr.readlines():
-            img = get_img(os.path.join(IMAGE_DIR, i.strip() + '.jpg'))
-            print('读取图片{}完毕！'.format(i))
-            file_paths.append(img)
-    # np.save(r'F:\NUS_dataset\2003_pics',np.array(file_paths).astype(dtype=np.float32))
-    print('cpu_count :', cpu_count())
-    len_ = len(file_paths)
-    i_list = []
-    left = 0
-    while True:
-        right = left + 1000
-        if right >= len_:
-            i_list.append([left, len_])
-            break
-        i_list.append([left, right])
-        left = right
-    n_list = [None for i in range(len(i_list))]
-    pool = threadpool.ThreadPool(cpu_count())
-    requests = threadpool.makeRequests(get_pic_input2output, zip(i_list, n_list))
-    [pool.putRequest(req) for req in requests]
-    pool.wait()
-    print('all of strans_part excute over !!!!!')
-    end = time.time()
-    print('consume time is :' + str(end - start) + ' seconds!!')
-
-
 def singleCom():
-    root_dir = r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\2003_mat'
+    root_dir = r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\database_mat'
     ord = []
     for i in os.listdir(root_dir):
         ord.append(int(i.strip().split('_')[0]))
@@ -115,51 +41,68 @@ def singleCom():
     ls = []
     for i in ord:
         ls.append(np.load(os.path.join(root_dir, str(i) + '_mat.npy')))
-    np.save(r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\vgg16_121_train_mat', np.concatenate(ls))
+    np.save(r'F:\NUS_dataset\teacher_project_data\vgg16_fc7_active_2003', np.concatenate(ls))
 
 
-def com(file_id, left, right):
-    all_mat_after = []
-    for i in file_id[left:right]:
-        all_mat_after.append(
-            np.load(os.path.join(DATABASE_MAT_DIR, str(i) + '_mat.npy')))
-
-    np.save(os.path.join(COM_DIR, str(left) + '_combine_pic.mat'),
-            np.concatenate(all_mat_after))
-    print('combination over!!!')
-
-
-def com_parts():
-    if os.path.exists(COM_DIR):
-        shutil.rmtree(COM_DIR)
-
-    os.mkdir(COM_DIR)
-
-    print('cpu_count :', cpu_count())
-    file_id = []
-    for i in range(0, 230000, 100):  # generate files indexes
-
-        if i + 100 >= 218738:
-            file_id.append(i)
+def single_gen_mat():
+    global file_paths
+    file_paths = []
+    with open(IMAGE_PATH_2003) as fr:
+        for i in fr.readlines():
+            # img = get_img(os.path.join(IMAGE_DIR, i.strip() + '.jpg'))
+            print('读取图片{}完毕！'.format(i))
+            file_paths.append(os.path.join(IMAGE_DIR, i.strip() + '.jpg'))
+    len_ = len(file_paths)
+    left = 0
+    i_list = []
+    while True:
+        right = left + 1000
+        if right >= len_:
+            i_list.append([left, len_])
             break
-        file_id.append(i)
+        i_list.append([left, right])
+        left = right
+    config = tf.ConfigProto()
+    # config.gpu_options.per_process_gpu_memory_fraction = 1.
+    with tf.Graph().as_default() as g:
+        with tf.Session(config=config) as sess:
 
-    len_ = len(file_id)
+            # 调用模型部分………………………………………………………………………………………………
+            arr = tf.placeholder("float", [None, IMAGE_SIZE, IMAGE_SIZE, 3])
+            vgg16 = Vgg16(vgg16_npy_path=r'F:\NUS_dataset\tensorflow-vgg_models\vgg16.npy')
+            logits = vgg16.inference(arr)
 
-    com_i_list = []
-    for i in range(0, 230000, 1000):  # split files indexes
-
-        if i + 1000 >= len_:
-            com_i_list.append([file_id, i, len_])
-            break
-        com_i_list.append([file_id, i, i + 1000])
-    n_list = [None for ii in range(len(com_i_list))]
-    pool = threadpool.ThreadPool(cpu_count())
-    requests = threadpool.makeRequests(com, zip(com_i_list, n_list))
-    [pool.putRequest(req) for req in requests]
-    pool.wait()
-    print('all of com excute over !!!!!')
+            # 读取生产的顺序文件（保证最后的向量顺序与该文件里的文件名顺序相同）
+            for i in i_list:
+                lstart = i[0]
+                lend = i[1]
+                num = 1
+                all_pics = []
+                for i in file_paths[lstart:lend]:
+                    img_mat = get_img(i)
+                    all_pics.append((img_mat - np.mean(img_mat)) / np.std(img_mat))
+                    print(num)
+                    num += 1
+                len_ = len(all_pics)
+                i_list = []
+                left = 0
+                while True:
+                    right = left + 50
+                    if right >= len_:
+                        i_list.append([left, len_])
+                        break
+                    i_list.append([left, right])
+                    left = right
+                    # 开始分批存储转换好的mat
+                for i in i_list:
+                    affine = sess.run(logits, feed_dict={
+                        arr: all_pics[i[0]:i[1]]})
+                    # 保存结果
+                    np.save(os.path.join(r'F:\NUS_dataset\teacher_project_data\img_transfer_mat\database_mat',
+                                         str(lstart + i[0]) + '_mat'), affine)
+                    print('第{}块mat保存完毕！'.format(lstart + i[0]))
 
 
 if __name__ == '__main__':
     singleCom()
+    # single_gen_mat()

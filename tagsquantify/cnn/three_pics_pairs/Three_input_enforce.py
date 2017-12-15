@@ -4,60 +4,60 @@ import numpy as np
 import os
 from PIL import Image
 
+from tagsquantify.cnn.three_pics_pairs import Three_net_enforce
+
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
-tf.app.flags.DEFINE_integer('img_size', 60,
+tf.app.flags.DEFINE_integer('img_size', 100,
                             """Number of images to process in a batch.""")
 
-tf.app.flags.DEFINE_string('pair_dir', '/home/wangxiaopeng/NUS_dataset/three_pair.txt',
+tf.app.flags.DEFINE_string('pair_dir', r'F:\NUS_dataset\graduate_data\219388_2003_0.2_three_pair.txt',
+                           """three pairs files dir.""")
+tf.app.flags.DEFINE_string('pic_name_list',
+                           r'F:\NUS_dataset\graduate_data\219388_2003_0.2_three_pair_pic_name_list.txt',
                            """three pairs files dir.""")
 tf.app.flags.DEFINE_string('imgs_dir',
-                           '/home/wangxiaopeng/NUS_dataset/NUS_dataset/images_220341',
-                           """Path to the NUS data directory.""")
-tf.app.flags.DEFINE_string('filenames_list_file',
-                           '/home/wangxiaopeng/NUS_dataset/220341_key_list.dat',
+                           r'F:\NUS_dataset\images_220841',
                            """Path to the NUS data directory.""")
 
 
 class InputUtil:
     def __init__(self):
-        # 读取文件名列表
-        with open(FLAGS.filenames_list_file) as fr:
-            self.paths = fr.readlines()
 
         with open(FLAGS.pair_dir) as fr:  # 文件格式：i j k 代表pic名字索引
-            pair_files = fr.readlines()
-
-        pair_indexes = []
-        pair_len = len(pair_files)
-        for i in xrange(1000, pair_len, 1000):
-            pair_indexes.append(i)
-
-        self.pair_files = np.split(np.array(pair_files), pair_indexes)  # 1000行为一个块
-        self.pair_files_len = len(self.pair_files)
-
-        print 'read pair_files over !!!'
+            self.paths = fr.readlines()
+        self.start = 0
+        self.end = 0
+        print('read pair_files over !!!')
 
     # 获取该图片对应的输入向量
     def getimg(self, str1):
         im = Image.open(str1)
         re_img = np.array(im.resize((FLAGS.img_size, FLAGS.img_size)), dtype=np.float32)
         # Subtract off the mean and divide by the variance of the pixels.
-        std = np.std(re_img)
-        return np.divide(np.subtract(re_img, np.mean(re_img)), std)
+        return (re_img - np.mean(re_img)) / np.std(re_img)
 
-    def next_batch(self, batch_size, step):
-        # 随机读取false_files中的一个文件（1000行数据），再随机返回batch_size / 8个pairs
-        part_pair_names = np.random.choice(self.pair_files[step % self.pair_files_len], batch_size / 3,
-                                           replace=False)
+    def next_batch(self, batch_size=Three_net_enforce.FLAGS.batch_size, shuffle_=True):
+        if self.start == 0 and shuffle_:
+            np.random.shuffle(self.paths)
+        self.end = self.start + batch_size / 3
+        if self.end > len(self.paths):
+            self.end = len(self.paths)
+            self.start = self.end - batch_size / 3
+
         i_s = []
         j_s = []
         k_s = []
-        for line in part_pair_names:
+        for line in self.paths[int(self.start):int(self.end)]:
             line = line.strip().split(' ')
-            i_s.append(self.getimg(os.path.join(FLAGS.imgs_dir,self.paths[int(line[0])].strip()+'.jpg')))
-            j_s.append(self.getimg(os.path.join(FLAGS.imgs_dir, self.paths[int(line[1])].strip() + '.jpg')))
-            k_s.append(self.getimg(os.path.join(FLAGS.imgs_dir, self.paths[int(line[2])].strip() + '.jpg')))
+            i_s.append(self.getimg(os.path.join(FLAGS.imgs_dir,line[0]+'.jpg')))
+            j_s.append(self.getimg(os.path.join(FLAGS.imgs_dir,line[1]+'.jpg')))
+            k_s.append(self.getimg(os.path.join(FLAGS.imgs_dir,line[2]+'.jpg')))
+            # print(1)
+        if self.end == len(self.paths):
+            self.start = 0
+        else:
+            self.start = self.end
         # 一维数组
-        return np.concatenate([i_s,j_s,k_s])
+        return np.concatenate([i_s, j_s, k_s])
