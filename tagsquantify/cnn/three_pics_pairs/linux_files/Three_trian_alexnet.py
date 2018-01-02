@@ -1,0 +1,114 @@
+# encoding=utf-8
+from datetime import datetime
+import time, os, sys, threading
+import numpy as np
+import tensorflow as tf
+
+from tagsquantify.cnn.three_pics_pairs import Three_input_mem
+from tagsquantify.cnn.three_pics_pairs.linux_files import Three_net_alexnet, explore
+
+sys.path.append('.')
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_string('train_dir', r'F:\NUS_dataset\graduate_data\alexnet_checkPointdir_fc7',
+                           """Directory where to write event logs """
+                           """and checkpoint.""")
+tf.app.flags.DEFINE_integer('max_steps', 200000,
+                            """Number of batches to run.""")
+tf.app.flags.DEFINE_boolean('log_device_placement', False,
+                            """Whether to log device placement.""")
+
+
+def train():
+    """Train CIFAR-10 for a number of steps."""
+    with tf.Graph().as_default() as g:
+        global_step = tf.Variable(0, trainable=False)
+
+        # Get images and labels for CIFAR-10.
+        images = tf.placeholder(dtype=tf.float32,
+                                shape=[None, 4096])
+        # Build a Graph that computes the logits predictions from the
+        # inference model.
+        drop = tf.placeholder('bool')
+        logits = Three_net_alexnet.inference(images, drop)
+
+        # Calculate loss.
+        loss = Three_net_alexnet.loss(logits)
+
+        # Build a Graph that trains the model with one batch of examples and
+        # updates the model parameters.
+        train_op = Three_net_alexnet.train(loss, global_step)
+        # Create a saver.
+        saver = tf.train.Saver(tf.all_variables())
+
+        # Build the summary operation based on the TF collection of Summaries.
+        summary_op = tf.summary.merge_all()
+
+        # Build an initialization operation to run below.
+        # init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        init = tf.global_variables_initializer()
+
+        # Start running operations on the Graph.
+        config = tf.ConfigProto()
+        config.gpu_options.per_process_gpu_memory_fraction = 0.4
+        sess = tf.Session(config=config)
+        sess.run(init)
+
+        # Start the queue runners.
+        tf.train.start_queue_runners(sess=sess)
+
+        # summary_writer = tf.train.SummaryWriter(FLAGS.train_dir,
+        #                                         graph_def=sess.get_default)
+        summary_writer = tf.summary.FileWriter(FLAGS.train_dir, graph=g)
+
+        input = Three_input_mem.InputUtil()
+
+        for step in range(FLAGS.max_steps):
+            start_time = time.time()
+            datas = input.next_batch()
+            _, loss_value = sess.run([train_op, loss],
+                                     feed_dict={images: datas, drop: True})
+            duration = time.time() - start_time
+
+            assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+
+            if step % 10 == 0:
+                num_examples_per_step = Three_net_alexnet.FLAGS.batch_size
+                examples_per_sec = num_examples_per_step / duration
+                sec_per_batch = float(duration)
+
+                format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
+                              'sec/batch)')
+                print(format_str % (datetime.now(), step, loss_value,
+                                    examples_per_sec, sec_per_batch))
+
+            if step % 100 == 0:
+                summary_str = sess.run(summary_op, feed_dict={images: datas, drop: True})
+                summary_writer.add_summary(summary_str, step)
+
+            # Save the model checkpoint periodically.
+            if step % 500 == 0 or (step + 1) == FLAGS.max_steps:
+                checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
+                saver.save(sess, checkpoint_path, global_step=step)
+            if step % 200 == 0:
+                small = sess.run(logits, feed_dict={
+                    images: np.load(r'F:\NUS_dataset\graduate_data\vgg16_fc7_121.npy'),
+                    drop: False})
+                big = sess.run(logits, feed_dict={
+                    images: np.load(r'F:\NUS_dataset\graduate_data\vgg16_fc7_1000.npy'),
+                    drop: False})
+                acc = threading.Thread(target=explore.eval_acc,
+                                       args=(step, small, big, FLAGS.train_dir))
+                acc.setDaemon(True)
+                acc.start()
+
+
+def main(argv=None):  # pylint: disable=unused-argument
+    if tf.gfile.Exists(FLAGS.train_dir):
+        tf.gfile.DeleteRecursively(FLAGS.train_dir)
+    tf.gfile.MakeDirs(FLAGS.train_dir)
+    train()
+
+
+if __name__ == '__main__':
+    tf.app.run()

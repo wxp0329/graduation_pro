@@ -7,21 +7,21 @@ import numpy as np
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
-tf.app.flags.DEFINE_integer('batch_size', 258,
+tf.app.flags.DEFINE_integer('batch_size', 528,
                             """Number of images to process in a batch.""")
 
 tf.app.flags.DEFINE_boolean('use_fp16', False,
                             """Train the model using fp16.""")
 
 # Global constants describing the NUS data set.
-LOSS_LAMBDA = 5.
+LOSS_LAMBDA = 6.
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 1528431  # contain pics num compute with 219388_2003_indexes_0.2_three_pair.dat
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.999  # The decay to use for the moving average.
 NUM_EPOCHS_PER_DECAY = 2.  # Epochs after which learning rate decays.
 LEARNING_RATE_DECAY_FACTOR = .1  # Learning rate decay factor.
 
-INITIAL_LEARNING_RATE = .01  # Initial learning rate.
+INITIAL_LEARNING_RATE = .001  # Initial learning rate.
 
 # If a model is trained with multiple GPUs, prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
@@ -94,7 +94,7 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
     return var
 
 
-def inference(images, dropout):
+def inference_1(images, dropout):
     """Build the AlexNet model.
     Args:
       images: Images Tensor
@@ -222,7 +222,14 @@ def inference(images, dropout):
         _activation_summary(local4)
 
     with tf.variable_scope('full_3') as scope:
-        weights = _variable_with_weight_decay('weights', shape=[4096, 64],
+        weights = _variable_with_weight_decay('weights', shape=[4096, 1000],
+                                              stddev=0.01, wd=0.0005)
+        biases = _variable_on_cpu('biases', [1000], tf.constant_initializer(0.))
+        local4 = tf.nn.relu(tf.matmul(local4, weights) + biases, name=scope.name)
+        local4 = tf.cond(dropout, lambda: tf.nn.dropout(local4, keep_prob=0.5), lambda: local4)
+        _activation_summary(local4)
+    with tf.variable_scope('full_4') as scope:
+        weights = _variable_with_weight_decay('weights', shape=[1000, 64],
                                               stddev=0.01, wd=0.0005)
         biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.))
         local4 = tf.nn.relu(tf.matmul(local4, weights) + biases, name=scope.name)
@@ -230,7 +237,8 @@ def inference(images, dropout):
     return local4
 
 
-def inference_1(images, dropout=True):
+fen=dict()
+def inference(images, dropout):
     """Build the NUS_dataset model.
 
     Args:
@@ -243,29 +251,41 @@ def inference_1(images, dropout=True):
     with tf.variable_scope('local3') as scope:
         # Move everything into depth so we can perform a single matrix multiply.
 
-        weights = _variable_with_weight_decay('weights', shape=[4096, 2000],
+        weights = _variable_with_weight_decay('weights', shape=[4096, 1024],
                                               stddev=0.1, wd=0.004)
-        biases = _variable_on_cpu('biases', [2000], tf.constant_initializer(0.))
-        local3 = tf.nn.sigmoid(tf.matmul(images, weights) + biases, name=scope.name)
-        if dropout:
-            local3 = tf.nn.dropout(local3, keep_prob=0.5)
+        biases = _variable_on_cpu('biases', [1024], tf.constant_initializer(0.))
+        local3 = tf.nn.tanh(tf.matmul(images, weights) + biases, name=scope.name)
+        local3 = tf.cond(dropout, lambda: tf.nn.dropout(local3, keep_prob=0.5), lambda: local3)
+        fen['local3'] = local3
+
+        _activation_summary(local3)
+    with tf.variable_scope('local3_1') as scope:
+        # Move everything into depth so we can perform a single matrix multiply.
+
+        weights = _variable_with_weight_decay('weights', shape=[1024, 512],
+                                              stddev=0.1, wd=0.004)
+        biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.))
+        local3 = tf.nn.tanh(tf.matmul(local3, weights) + biases, name=scope.name)
+        fen['local3_1'] = local3
+        # dropout
+        local3 = tf.cond(dropout, lambda: tf.nn.dropout(local3, keep_prob=0.5), lambda: local3)
         _activation_summary(local3)
     with tf.variable_scope('local4') as scope:
         # Move everything into depth so we can perform a single matrix multiply.
 
-        weights = _variable_with_weight_decay('weights', shape=[2000, 64],
+        weights = _variable_with_weight_decay('weights', shape=[512, 64],
                                               stddev=0.1, wd=0.004)
         biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.))
-        local4 = tf.nn.sigmoid(tf.matmul(local3, weights) + biases, name=scope.name)
-        # if dropout:
-        #     local4 = tf.nn.dropout(local4, keep_prob=0.5)
+        fen['local4_in'] = local3
+        hash_in = tf.nn.bias_add(tf.matmul(local3, weights), biases, name=scope.name + '_hash_in')
+        local4 = tf.nn.tanh(hash_in)
+        # local4 = tf.contrib.layers.l1_regularizer(0.01)(local4)
+        # tf.add_to_collection('losses', local4/FLAGS.batch_size)
+        # local4=hash_activation.hash_active_tf(hash_in)
+        fen['local4_out'] = local4
+        fen['local4_w'] = weights
+        fen['local4_b'] = biases
         _activation_summary(local4)
-    # with tf.variable_scope('affine') as scope:
-    #     weights = _variable_with_weight_decay('weights', shape=[800, 64],
-    #                                           stddev=0.1, wd=0.004)
-    #     biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.))
-    #     local5 = tf.nn.relu(tf.matmul(local4, weights) + biases, name=scope.name)
-    #     _activation_summary(local5)
 
     return local4
 
@@ -277,7 +297,9 @@ def loss(imgs):
     :param false_files: 
     :return:
     """
+
     with tf.variable_scope('loss') as scope:
+        regular=tf.contrib.layers.l1_regularizer(0.5)(imgs)/FLAGS.batch_size
         print('computer losss........................')
         i_s = imgs[:int(FLAGS.batch_size / 3)]
         j_s = imgs[int(FLAGS.batch_size / 3):int(FLAGS.batch_size * 2 / 3)]
@@ -286,7 +308,7 @@ def loss(imgs):
         i_k_dist = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(i_s, k_s)), axis=1))
         i_j_dist = tf.sqrt(tf.reduce_sum(tf.square(tf.subtract(i_s, j_s)), axis=1))
 
-        loss = tf.reduce_mean(tf.maximum(0., tf.add(tf.subtract(LOSS_LAMBDA, i_k_dist), i_j_dist)))
+        loss = tf.reduce_mean(tf.maximum(0., tf.add(tf.subtract(LOSS_LAMBDA, i_k_dist), i_j_dist)))+regular
     tf.add_to_collection('losses', loss)
 
     # The total loss is defined as the cross entropy loss plus all of the weight

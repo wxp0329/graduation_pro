@@ -75,12 +75,13 @@ def acc(sum_aix1):
     match_count = len(sum_aix1[np.where(sum_aix1 != 0)]) * 1. / len(sum_aix1)
     return match_count
 
-
 def MAP(sum_aix1):
     sum_aix1 = np.reshape(sum_aix1, [-1])
-    b = np.where(sum_aix1 != 0)[0] + 1.
-    c = np.array([i for i in range(1, len(b) + 1)])
-    return np.mean(np.divide(c, b))
+    aim_inds = np.where(sum_aix1 != 0)[0]+1
+    if aim_inds.shape[0] == 0:
+        return 0
+    c = np.array([i for i in range(1, len(aim_inds) + 1)])
+    return np.mean(np.divide(c,aim_inds))
 
 
 def recall(pic_121_Lb, sum_aix1):

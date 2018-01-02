@@ -100,6 +100,4 @@ def get2003features():
 
 
 if __name__ == '__main__':
-    # get2003features()
-    with open('/media/wangxiaopeng/maxdisk/NUS_dataset/tags/tags_after/218838_key_list.txt') as fr:
-         print (len(set(fr.readlines())))
+    print('hahahah.............')

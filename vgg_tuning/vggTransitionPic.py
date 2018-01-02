@@ -10,15 +10,13 @@ from multiprocessing import cpu_count
 
 import threadpool
 
-# from tagsquantify.cnn import NUS_layers
-from tagsquantify.cnn.three_pics_pairs import Three_net_enforce, explore
-from tagsquantify.cnn.vgg_nets.vgg16train import Vgg16
-from tagsquantify.cnn.vgg_nets.vgg19train import Vgg19
+from vgg16train import Vgg16
+from vgg19train import Vgg19
 
 IMAGE_SIZE = 224
-IMAGE_DIR = r'F:\NUS_dataset\images_220841'
-IMAGE_PATH_2003 = r'F:\NUS_dataset\graduate_data\2000_frequent_key_list.txt'#F:\NUS_dataset\graduate_data\169345_0.2_three_pair_pic_name_list.txt
-MAT_2003_DIR = r'F:\NUS_dataset\graduate_data\img_transfer_mat\mat_part'
+IMAGE_DIR = '/home/wangxiaopeng/NUS_dataset/images_220841'
+IMAGE_PATH_2003 = '/home/wangxiaopeng/graduatePro/2000_frequent_key_list.txt'#F:\NUS_dataset\graduate_data\169345_0.2_three_pair_pic_name_list.txt
+MAT_2003_DIR = '/home/wangxiaopeng/aa'
 
 
 def get_img(str1):
@@ -37,7 +35,7 @@ def singleCom():
     ls = []
     for i in ord:
         ls.append(np.load(os.path.join(root_dir, str(i) + '_mat.npy')))
-    np.save(r'F:\NUS_dataset\graduate_data\vgg16_fc7_2000' , np.concatenate(ls))
+    np.save('/home/wangxiaopeng/graduatePro/vgg19_fc7_2000' , np.concatenate(ls))
 
 
 def single_gen_mat():
@@ -47,17 +45,18 @@ def single_gen_mat():
         shutil.rmtree(MAT_2003_DIR)
 
     os.mkdir(MAT_2003_DIR)
-    with open(IMAGE_PATH_2003,encoding='utf-8_sig') as fr:
+    with open(IMAGE_PATH_2003) as fr:
         for i in fr.readlines():
             # img = get_img(os.path.join(IMAGE_DIR, i.strip() + '.jpg'))
+            i=i.strip().replace('\xef\xbb\xbf', '')
             print('读取图片{}完毕！'.format(i))
-            file_paths.append(os.path.join(IMAGE_DIR, i.strip() + '.jpg'))
+            file_paths.append(os.path.join(IMAGE_DIR, i + '.jpg'))
             # file_paths.append(img)
     len_ = len(file_paths)
     left = 0
     i_list = []
     while True:
-        right = left + 1000
+        right = left + 100
         if right >= len_:
             i_list.append([left, len_])
             break
@@ -70,8 +69,8 @@ def single_gen_mat():
 
             # 调用模型部分………………………………………………………………………………………………
             arr = tf.placeholder("float", [None, IMAGE_SIZE, IMAGE_SIZE, 3])
-            vgg16 = Vgg16(vgg16_npy_path=r'F:\NUS_dataset\tensorflow-vgg_models\vgg16.npy')
-            logits = vgg16.inference(arr)
+            vgg19= Vgg19(vgg19_npy_path='/home/wangxiaopeng/tensorflow-vgg_models/vgg19.npy')
+            logits = vgg19.inference(arr)
             sess.run(tf.global_variables_initializer())
             # 读取生产的顺序文件（保证最后的向量顺序与该文件里的文件名顺序相同）
             for i in i_list:
@@ -88,7 +87,7 @@ def single_gen_mat():
                 i_list = []
                 left = 0
                 while True:
-                    right = left + 80
+                    right = left + 30
                     if right >= len_:
                         i_list.append([left, len_])
                         break

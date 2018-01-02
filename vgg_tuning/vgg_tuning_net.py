@@ -7,26 +7,26 @@ import numpy as np
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
-tf.app.flags.DEFINE_integer('batch_size', 528,
+tf.app.flags.DEFINE_integer('batch_size', 126,
                             """Number of images to process in a batch.""")
 
 tf.app.flags.DEFINE_boolean('use_fp16', False,
                             """Train the model using fp16.""")
 
 # Global constants describing the NUS data set.
-LOSS_LAMBDA =12.
+LOSS_LAMBDA = 6.
 L1_param=1.
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 1528431  # contain pics num compute with 219388_2003_indexes_0.2_three_pair.dat
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.999  # The decay to use for the moving average.
 NUM_EPOCHS_PER_DECAY = 2.  # Epochs after which learning rate decays.
-LEARNING_RATE_DECAY_FACTOR = 2e-3 # Learning rate decay factor.
+LEARNING_RATE_DECAY_FACTOR = 1e-10 # Learning rate decay factor.
 
-INITIAL_LEARNING_RATE = 2e-3# Initial learning rate.
+INITIAL_LEARNING_RATE = 1e-10# Initial learning rate.
 
 # If a model is trained with multiple GPUs, prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
-# names of the summaries when visualizing a model.
+# names of the summaries when visualizing a model.q
 TOWER_NAME = 'tower'
 
 
@@ -119,7 +119,14 @@ def inference(images, dropout):
     Returns:
       Logits.
     """
-    # local3
+    # with tf.variable_scope('flatten') as scope:
+    #     shape = int(np.prod(images.get_shape()[1:]))
+    #     weights = _variable_with_weight_decay('weights', shape=[shape, 4096],
+    #                                           stddev=0.1, wd=0.004)
+    #     biases = _variable_on_cpu('biases', [4096], tf.constant_initializer(0.))
+    #     images=tf.reshape(images,[-1,shape])
+    #     images=tf.nn.tanh(tf.matmul(images, weights) + biases, name=scope.name)
+    # # local3
     with tf.variable_scope('local3') as scope:
         # Move everything into depth so we can perform a single matrix multiply.
 
@@ -151,7 +158,6 @@ def inference(images, dropout):
         biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.))
         hash_in = tf.nn.bias_add(tf.matmul(local3, weights), biases, name=scope.name + '_hash_in')
         local4 = tf.nn.tanh(hash_in)
-        # local4=hash_activation.hash_active_tf(hash_in)
         fen['local4_w'] = weights
         fen['local4_b'] = biases
         _activation_summary(local4)
@@ -244,7 +250,7 @@ def train(total_loss, global_step):
     # Compute gradients.
     with tf.control_dependencies([loss_averages_op]):
         # opt = tf.train.GradientDescentOptimizer(lr)
-        opt = tf.train.MomentumOptimizer(lr,momentum=0.92)
+        opt = tf.train.MomentumOptimizer(lr,momentum=0.9)
         grads = opt.compute_gradients(total_loss)
     #
     # # Apply gradients.

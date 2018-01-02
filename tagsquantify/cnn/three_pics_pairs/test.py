@@ -160,6 +160,39 @@ def jiao():
         for i in fr.readlines():
             a.add(i.strip())
     print(a.intersection(b))
-if __name__ == '__main__':
-    # part()
-    jiao()
+
+def ex_169345_fc():
+    a=dict()
+    with open(r'F:\NUS_dataset\teacher_project_data\219388_2003_sparsecoding_bow_keylist.txt') as fr:
+        num=0
+        for i in fr.readlines():
+            a[i.strip()]=num
+            num+=1
+    b=[]
+    with open(r'F:\NUS_dataset\graduate_data\169345_0.2_three_pair_pic_name_list.txt') as fr:
+        for i in fr.readlines():
+            b.append(a[i.strip()])
+    d=np.load(r'F:\NUS_dataset\teacher_project_data\vgg16_fc7_active_216617.npy')[b]
+    print(d.shape)
+    np.save(r'F:\NUS_dataset\graduate_data\169345_vgg16_fc',d)
+def aa():
+    small=np.loadtxt(r'F:\NUS_dataset\teacher_project_data\2003_81_labels_mat.txt',dtype=np.int32)
+    big = np.loadtxt(r'F:\NUS_dataset\teacher_project_data\216617_81_labels_mat.txt', dtype=np.int32)
+    sum=0
+    fw=open(r'test.txt','w')
+    for i in small:
+        result=np.sum(np.multiply(i,big),axis=1)
+        count=len(np.where(result!=0)[0].tolist())
+        if count < 500:
+            fw.write(str(sum)+' '+str(count)+' ##############')
+            print(str(sum)+' '+str(count)+' ##############')
+        else:
+            fw.write(str(sum) + ' ' + str(count))
+            print(str(sum) + ' ' + str(count))
+        sum+=1
+    fw.close()
+
+
+if __name__=='__main__':
+    mydict = np.load(r'F:\NUS_dataset\graduate_data\img_transfer_mat\mat_part\0_mat.npy' )
+    print(mydict.shape)

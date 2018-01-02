@@ -43,46 +43,46 @@ class Vgg16:
         # ])
         # assert bgr.get_shape().as_list()[1:] == [224, 224, 3]
 
-        self.conv1_1 = self.conv_layer(rgb, 3, 64, "conv1_1", trainable=self.train_mode)
-        self.conv1_2 = self.conv_layer(self.conv1_1, 64, 64, "conv1_2", trainable=self.train_mode)
-        self.pool1 = self.max_pool(self.conv1_2, 'pool1')
+        # self.conv1_1 = self.conv_layer(rgb, 3, 64, "conv1_1", trainable=self.train_mode)
+        # self.conv1_2 = self.conv_layer(self.conv1_1, 64, 64, "conv1_2", trainable=self.train_mode)
+        # self.pool1 = self.max_pool(self.conv1_2, 'pool1')
+        #
+        # self.conv2_1 = self.conv_layer(self.pool1, 64, 128, "conv2_1", trainable=self.train_mode)
+        # self.conv2_2 = self.conv_layer(self.conv2_1, 128, 128, "conv2_2", trainable=self.train_mode)
+        # self.pool2 = self.max_pool(self.conv2_2, 'pool2')
+        #
+        # self.conv3_1 = self.conv_layer(self.pool2, 128, 256, "conv3_1", trainable=self.train_mode)
+        # self.conv3_2 = self.conv_layer(self.conv3_1, 256, 256, "conv3_2", trainable=self.train_mode)
+        # self.conv3_3 = self.conv_layer(self.conv3_2, 256, 256, "conv3_3", trainable=self.train_mode)
+        # self.pool3 = self.max_pool(self.conv3_3, 'pool3')
+        #
+        # self.conv4_1 = self.conv_layer(self.pool3, 256, 512, "conv4_1", trainable=self.train_mode)
+        # self.conv4_2 = self.conv_layer(self.conv4_1, 512, 512, "conv4_2", trainable=self.train_mode)
+        # self.conv4_3 = self.conv_layer(self.conv4_2, 512, 512, "conv4_3", trainable=self.train_mode)
+        # self.pool4 = self.max_pool(self.conv4_3, 'pool4')
 
-        self.conv2_1 = self.conv_layer(self.pool1, 64, 128, "conv2_1", trainable=self.train_mode)
-        self.conv2_2 = self.conv_layer(self.conv2_1, 128, 128, "conv2_2", trainable=self.train_mode)
-        self.pool2 = self.max_pool(self.conv2_2, 'pool2')
-
-        self.conv3_1 = self.conv_layer(self.pool2, 128, 256, "conv3_1", trainable=self.train_mode)
-        self.conv3_2 = self.conv_layer(self.conv3_1, 256, 256, "conv3_2", trainable=self.train_mode)
-        self.conv3_3 = self.conv_layer(self.conv3_2, 256, 256, "conv3_3", trainable=self.train_mode)
-        self.pool3 = self.max_pool(self.conv3_3, 'pool3')
-
-        self.conv4_1 = self.conv_layer(self.pool3, 256, 512, "conv4_1", trainable=self.train_mode)
-        self.conv4_2 = self.conv_layer(self.conv4_1, 512, 512, "conv4_2", trainable=self.train_mode)
-        self.conv4_3 = self.conv_layer(self.conv4_2, 512, 512, "conv4_3", trainable=self.train_mode)
-        self.pool4 = self.max_pool(self.conv4_3, 'pool4')
-
-        self.conv5_1 = self.conv_layer( self.pool4, 512, 512, "conv5_1", trainable=self.train_mode)
+        self.conv5_1 = self.conv_layer( rgb , 512, 512, "conv5_1", trainable=self.train_mode)
         self.conv5_2 = self.conv_layer(self.conv5_1, 512, 512, "conv5_2", trainable=self.train_mode)
         self.conv5_3 = self.conv_layer(self.conv5_2, 512, 512, "conv5_3", trainable=self.train_mode)
         self.pool5 = self.max_pool(self.conv5_3, 'pool5')
-        #
-        # shape = int(np.prod(self.pool5.get_shape()[1:]))
-        # self.fc6 = self.fc_layer(self.pool5, shape, 4096, "fc6", trainable=self.train_mode)
-        # assert self.fc6.get_shape().as_list()[1:] == [4096]
-        # self.relu6 = tf.nn.relu(self.fc6)
-        # if self.train_mode:
-        #     self.relu6 = tf.nn.dropout(self.relu6, 0.5)
-        #
-        # self.fc7 = self.fc_layer(self.relu6, 4096, 4096, "fc7", trainable=self.train_mode)
-        # self.relu7 = tf.nn.relu(self.fc7)
-        # if self.train_mode:
-        #     self.relu7 = tf.nn.dropout(self.relu7, 0.5)
+
+        shape = int(np.prod(self.pool5.get_shape()[1:]))
+        self.fc6 = self.fc_layer(self.pool5, shape, 4096, "fc6", trainable=self.train_mode)
+        assert self.fc6.get_shape().as_list()[1:] == [4096]
+        self.relu6 = tf.nn.relu(self.fc6)
+        if self.train_mode:
+            self.relu6 = tf.nn.dropout(self.relu6, 0.5)
+
+        self.fc7 = self.fc_layer(self.relu6, 4096, 4096, "fc7", trainable=self.train_mode)
+        self.relu7 = tf.nn.relu(self.fc7)
+        if self.train_mode:
+            self.relu7 = tf.nn.dropout(self.relu7, 0.5)
         #
         # self.fc8 = self.fc_layer(self.relu7, 4096, 1000, "fc8", trainable=True)
         #
         # self.prob = tf.nn.softmax(self.fc8, name="prob")
 
-        return self.pool5
+        return self.relu7
 
     def avg_pool(self, bottom, name):
         return tf.nn.avg_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME', name=name)
@@ -135,6 +135,8 @@ class Vgg16:
             conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME')
             bias = tf.nn.bias_add(conv, conv_biases)
             relu = tf.nn.relu(bias)
+            weight_decay = tf.multiply(tf.nn.l2_loss(relu), 0.0005, name='weight_loss')
+            tf.add_to_collection('losses', weight_decay)
             return relu
 
     def fc_layer(self, bottom, in_size, out_size, name, trainable):
@@ -143,7 +145,8 @@ class Vgg16:
 
             x = tf.reshape(bottom, [-1, in_size])
             fc = tf.nn.bias_add(tf.matmul(x, weights), biases)
-
+            weight_decay = tf.multiply(tf.nn.l2_loss(fc), 0.004, name='weight_loss')
+            tf.add_to_collection('losses', weight_decay)
             return fc
 
     def get_conv_var(self, filter_size, in_channels, out_channels, name, trainable):
@@ -169,12 +172,7 @@ class Vgg16:
             value = self.data_dict[name][idx]
         else:
             value = initial_value
-
-        if self.train_mode:
-            var = tf.Variable(value, name=var_name, trainable=trainable)
-        else:
-            var = tf.constant(value, dtype=tf.float32, name=var_name)
-
+        var=tf.Variable(value, name=var_name, trainable=trainable)
         self.var_dict[(name, idx)] = var
 
         # print var_name, var.get_shape().as_list()

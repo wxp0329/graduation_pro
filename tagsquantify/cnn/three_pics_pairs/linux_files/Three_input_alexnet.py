@@ -4,7 +4,7 @@ import numpy as np
 import os
 from PIL import Image
 
-from tagsquantify.cnn.three_pics_pairs.linux_files import Three_net_enforce
+from tagsquantify.cnn.three_pics_pairs.linux_files import Three_net_alexnet
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -35,7 +35,7 @@ class InputUtil:
         # Subtract off the mean and divide by the variance of the pixels.
         return (re_img - np.mean(re_img)) / np.std(re_img)
 
-    def next_batch(self, batch_size=Three_net_enforce.FLAGS.batch_size, shuffle_=True):
+    def next_batch(self, batch_size=Three_net_alexnet.FLAGS.batch_size, shuffle_=True):
         if self.start == 0 and shuffle_:
             np.random.shuffle(self.paths)
         self.end = self.start + batch_size / 3

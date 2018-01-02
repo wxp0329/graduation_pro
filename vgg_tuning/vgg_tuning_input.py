@@ -5,7 +5,7 @@ import os
 from PIL import Image
 
 # from tagsquantify.cnn.three_pics_pairs.linux_files import Three_net_alexnet
-from tagsquantify.cnn.three_pics_pairs import Three_net_enforce
+import vgg_tuning_net
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -13,16 +13,16 @@ FLAGS = tf.app.flags.FLAGS
 # tf.app.flags.DEFINE_integer('img_size', 100,
 #                             """Number of images to process in a batch.""")
 
-tf.app.flags.DEFINE_string('pair_dir', r'F:\NUS_dataset\graduate_data\169345_0.2_filename_three_pair.txt',
+tf.app.flags.DEFINE_string('pair_dir', '../169345_0.2_filename_three_pair.txt',
                            """three pairs files dir.""")
 tf.app.flags.DEFINE_string('pic_name_list',
-                           r'F:\NUS_dataset\graduate_data\169345_0.2_three_pair_pic_name_list.txt',
+                           '../169345_0.2_three_pair_pic_name_list.txt',
                            """three pairs files dir.""")
 tf.app.flags.DEFINE_string('pic_mat_file',
-                           r'F:\NUS_dataset\graduate_data\vgg16_fc7_active_169345.npy',
+                           '../vgg16_pool4_169345.npy',
                            """three pairs files dir.""")
 tf.app.flags.DEFINE_string('imgs_dir',
-                           r'F:\NUS_dataset\images_220841',
+                           '~/NUS_dataset/images_220841',
                            """Path to the NUS data directory.""")
 
 
@@ -50,7 +50,7 @@ class InputUtil:
         # Subtract off the mean and divide by the variance of the pixels.
         return (re_img - np.mean(re_img)) / np.std(re_img)
 
-    def next_batch(self, batch_size=Three_net_enforce.FLAGS.batch_size, shuffle_=True):
+    def next_batch(self, batch_size=vgg_tuning_net.FLAGS.batch_size, shuffle_=True):
         if self.start == 0 and shuffle_:
             np.random.shuffle(self.paths)
         self.end = self.start + batch_size / 3
